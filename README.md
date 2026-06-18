@@ -8,4 +8,4 @@ Tech Stack:
 - MongoDB
 - Cloudinary
 - JWT Authentication
-- Gemini/OpenAI (for Notes generation)
+- Gemini (for Notes generation)
