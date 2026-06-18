@@ -1,7 +1,7 @@
 {
-  "name": "youtube",
+  "name": "nexis",
   "version": "1.0.0",
-  "description": "my first app",
+  "description": "It is a video pplatform where users can shares videos.",
   "license": "ISC",
   "author": "Dev",
   "type": "module",
