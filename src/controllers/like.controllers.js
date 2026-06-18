@@ -14,11 +14,13 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
   });
 
   if(like){
-    await Like.findByIdAndDelete(like._id);
+    like.isLiked = !like.isLiked;
+    like.createdAt = 
+    await like.save();
 
     return res
     .status(200)
-    .json(new ApiResponse(200, "Video disliked.", null));
+    .json(new ApiResponse(200, `Video ${like.isLiked ? 'liked' : 'disliked'}.`, null));
   }
 
   const createLike = await Like.create({
@@ -28,7 +30,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
 
   return res
   .status(200)
-  .json(new ApiResponse(200, "Video liked.", createLike));
+  .json(new ApiResponse(200, `Video ${createLike.isLiked ? 'liked' : 'disliked'}.`, createLike));
 });
 
 const toggleCommentLike = asyncHandler(async (req, res) => {
@@ -40,9 +42,10 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
   });
 
   if (like) {
-    await Like.findByIdAndDelete(like._id);
+    like.isLiked = !like.isLiked;
+    await like.save();
 
-    return res.status(200).json(new ApiResponse(200, "Comment disliked.", null));
+    return res.status(200).json(new ApiResponse(200, `Comment ${like.isLiked ? 'liked' : 'disliked'}.`, null));
   }
 
   const createLike = await Like.create({
@@ -50,7 +53,7 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     comment: commentId,
   });
 
-  return res.status(200).json(new ApiResponse(200, "Comment liked.", createLike));
+  return res.status(200).json(new ApiResponse(200, `Comment ${createLike.isLiked ? 'liked' : 'disliked'}.`, createLike));
 });
 
 const toggleTweetLike = asyncHandler(async (req, res) => {
@@ -62,9 +65,10 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
   });
 
   if (like) {
-    await Like.findByIdAndDelete(like._id);
+    like.isLiked = !like.isLiked;
+    await like.save();
 
-    return res.status(200).json(new ApiResponse(200, "Tweet disliked.", null));
+    return res.status(200).json(new ApiResponse(200, `Tweet ${like.isLiked ? 'liked' : 'disliked'}.`, null));
   }
 
   const createLike = await Like.create({
@@ -72,16 +76,51 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
     tweet: tweetId,
   });
 
-  return res.status(200).json(new ApiResponse(200, "Tweet liked.", createLike));
+  return res.status(200).json(new ApiResponse(200, `Tweet ${createLike.isLiked ? 'liked' : 'disliked'}.`, createLike));
 });
 
 const getLikedVideos = asyncHandler(async (req, res) => {
   //TODO: get all liked videos
   const pipeline = [];
+  const userpipeline = [];
+
+  userpipeline.push({
+    $lookup: {
+      from: "users",
+      localField: "owner",
+      foreignField: "_id",
+      as: "owner",
+    },
+  });
+
+  userpipeline.push({
+    $addFields: {
+      owner: { $first: "$owner" },
+    },
+  });
+
+  userpipeline.push({
+    $project: {
+      _id: 1,
+      title: 1,
+      thumbnail: 1,
+      views: 1,
+      createdAt: 1,
+      duration: 1,
+      owner: {
+        _id: 1,
+        fullName: 1,
+        username: 1,
+        avatar: 1,
+      },
+    },
+  });
+
 
   pipeline.push({
     $match:{
         likedBy: new mongoose.Types.ObjectId(req.user._id),
+        isLiked: true,
         video: { $exists: true, $ne: null }
     }
   });
@@ -91,7 +130,8 @@ const getLikedVideos = asyncHandler(async (req, res) => {
         from: "videos",
         localField: "video",
         foreignField: "_id",
-        as: "videoDetails"
+        as: "videoDetails",
+        pipeline: userpipeline
     }
   });
 
@@ -100,12 +140,19 @@ const getLikedVideos = asyncHandler(async (req, res) => {
   });
 
   pipeline.push({
-    $project:{
-        _id:1,
-        videoId: "$videoDetails._id",
-        title: "$videoDetails.title",
-        thumbnail: "$videoDetails.thumbnail"
-    }
+    $sort: { updatedAt: -1 }, // -1 = descending, latest first
+  });
+  
+  pipeline.push({
+    $project: {
+      _id: "$videoDetails._id",
+      title: "$videoDetails.title",
+      thumbnail: "$videoDetails.thumbnail",
+      views: "$videoDetails.views",
+      createdAt: "$videoDetails.createdAt",
+      duration: "$videoDetails.duration",
+      owner: "$videoDetails.owner",
+    },
   });
 
   const videos = await Like.aggregate(pipeline);
@@ -114,5 +161,6 @@ const getLikedVideos = asyncHandler(async (req, res) => {
       .status(200)
       .json(new ApiResponse(200, "Videos fetched!!", videos));
 });
+
 
 export { toggleCommentLike, toggleTweetLike, toggleVideoLike, getLikedVideos };

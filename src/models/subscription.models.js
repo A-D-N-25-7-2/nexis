@@ -10,6 +10,10 @@ const subscriptionSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
         required: true
+    },
+    isSubscribed: {
+        type: Boolean,
+        default: true
     }
 },{timestamps: true});
 

@@ -71,8 +71,8 @@ const registerUser = asyncHandler(async (req, res) => {
     username: username.toLowerCase(),
     email,
     password,
-    avatar: uploadedAvatar.url,
-    coverImage: uploadedCoverImage?.url || null,
+    avatar: uploadedAvatar.secure_url,
+    coverImage: uploadedCoverImage?.secure_url || null,
     avatarPublicId: uploadedAvatar.public_id,
     coverImagePublicId: uploadedCoverImage?.public_id || null,
   });
@@ -95,11 +95,11 @@ const registerUser = asyncHandler(async (req, res) => {
 
 const loginUser = asyncHandler(async (req, res) => {
   //taking username or email and password from request body
-  const { email, username, password } = req.body;
+  const { email, password } = req.body;
 
   // Validate input fields
-  if (!email && !username) {
-    throw new ApiError(400, "Email or username is required");
+  if (!email) {
+    throw new ApiError(400, "Email is required");
   }
   if (!password) {
     throw new ApiError(400, "Password is required");
@@ -107,7 +107,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   // finding user
   const user = await User.findOne({
-    $or: [{ email }, { username: username?.toLowerCase() }],
+    email: email?.toLowerCase(),
   });
 
   if (!user) {
@@ -127,17 +127,27 @@ const loginUser = asyncHandler(async (req, res) => {
   );
 
   //setting refresh token in http only cookie
-  const options = {
+  const accessOptions = {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 1000 * 60 * 60 * 24, // 1 day
   };
 
+  const refreshOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+  };
+  
   return res
     .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
+    .cookie("accessToken", accessToken, accessOptions)
+    .cookie("refreshToken", refreshToken, refreshOptions)
     .json(
       new ApiResponse(200, "User logged in successfully", {
+        user,
         accessToken,
         refreshToken,
       })
@@ -158,7 +168,9 @@ const logoutUser = asyncHandler(async (req, res) => {
   );
   const options = {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 0, // Set to 0 to delete the cookie
   };
 
   return res
@@ -173,6 +185,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     req.cookies?.refreshToken || req.body?.refreshToken;
 
   if (!incomingRefreshToken) {
+    console.log("No refresh token provided");
     throw new ApiError(401, "Unauthorized: No refresh token provided");
   }
 
@@ -184,25 +197,36 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   const user = await User.findById(decodedToken?._id);
 
   if (!user) {
+    console.log("User not found for the provided refresh token");
     throw new ApiError(401, "Unauthorized: Invalid refresh token");
   }
 
   if (user.refreshToken !== incomingRefreshToken) {
-    throw new ApiError(401, "refresh token is expired or used!");
+    console.log("Refresh token mismatch");
+    throw new ApiError(401, "Refresh token is expired or used!");
   }
   try {
-    const { accessToken, newRefreshToken } =
+    const { accessToken, refreshToken: newRefreshToken } =
       await generateAccessAndRefreshTokens(user._id);
 
-    const options = {
+    const accessOptions = {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 1000 * 60 * 60 * 24, // 1 day
+    };
+
+    const refreshOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
     };
 
     return res
       .status(200)
-      .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", newRefreshToken, options)
+      .cookie("accessToken", accessToken, accessOptions)
+      .cookie("refreshToken", newRefreshToken, refreshOptions)
       .json(
         new ApiResponse(200, "Access token refreshed successfully", {
           accessToken,
@@ -210,6 +234,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         })
       );
   } catch (error) {
+    console.log("Error refreshing access token");
     throw new ApiError(500, "Error refreshing access token");
   }
 });
@@ -350,17 +375,8 @@ const getUserChannelDetails = asyncHandler(async (req, res) => {
       },
     },
     {
-      $lookup: {
-        from: "subscriptions",
-        localField: "_id",
-        foreignField: "subscriber",
-        as: "subscriptions",
-      },
-    },
-    {
-      addFields: {
+      $addFields: {
         subscribersCount: { $size: "$subscribers" },
-        subscriptionsCount: { $size: "$subscriptions" },
         isSubscribed: {
           $cond: {
             if: { $in: [req.user._id, "$subscribers.subscriber"] },
@@ -381,6 +397,32 @@ const getUserChannelDetails = asyncHandler(async (req, res) => {
         isSubscribed: 1,
       },
     },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "_id",
+        foreignField: "owner",
+        as: "videos",
+      },
+    },
+    {
+      $addFields: {
+        totalVideos: {
+          $size: {
+            $filter: {
+              input: "$videos",
+              as: "v",
+              cond: { $eq: ["$$v.isPublished", true] },
+            },
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        videos: 0, // don't send the full videos array
+      },
+    },
   ]);
 
   if (!channel.length) {
@@ -399,12 +441,14 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     {
       $match: {
         _id: new mongoose.Types.ObjectId(req.user._id),
-      },
+      }
+    },
+    {
       $lookup: {
         from: "videos",
         localField: "watchHistory",
         foreignField: "_id",
-        as: "watchHistory",
+        as: "watchHistoryDetails",
         pipeline: [
           {
             $lookup: {
@@ -422,15 +466,55 @@ const getWatchHistory = asyncHandler(async (req, res) => {
                 },
               ],
             },
-            addFields: {
+          },
+          {
+            $addFields: {
               owner: {
                 $first: "$owner",
               },
             },
           },
+          {
+            $project : {
+              title: 1,
+              thumbnail: 1,
+              duration: 1,
+              views: 1,
+              createdAt: 1,
+              owner: 1
+            }
+          }
         ],
       },
     },
+    {
+      $addFields: {
+        watchHistory: {
+          $filter: {
+            input: {
+              $map: {
+                input: "$watchHistory",
+                as: "id",
+                in: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: "$watchHistoryDetails",
+                        as: "video",
+                        cond: { $eq: ["$$video._id", "$$id"] }
+                      }
+                    },
+                    0
+                  ]
+                }
+              }
+            },
+            as: "video",
+            cond: { $ne: ["$$video", null] }
+          }
+        }
+      }
+    }
   ]);
   return res
     .status(200)
@@ -438,9 +522,21 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         "Watch history fetched successfully",
-        user[0].watchHistory
+        user[0]?.watchHistory || []
       )
     );
+});
+
+const clearWatchHistory = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(req.user._id, {
+    $set:{
+      watchHistory: []
+    },
+  });
+
+  return res
+  .status(200)
+  .json(new ApiResponse(200, "Watch History cleared!!", null));
 });
 export {
   registerUser,
@@ -454,4 +550,5 @@ export {
   updateUserCoverImage,
   getUserChannelDetails,
   getWatchHistory,
+  clearWatchHistory
 };

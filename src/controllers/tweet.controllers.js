@@ -36,11 +36,65 @@ const getUserTweets = asyncHandler(async (req, res) => {
 
   pipeline.push(
     {
-      $match:{
-        owner: new mongoose.Types.ObjectId(userId)
+      $match: {
+        owner: new mongoose.Types.ObjectId(userId),
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          {
+            $project: {
+              _id: 1,
+              fullName: 1,
+              username: 1,
+              avatar: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "tweet",
+        as: "likes",
+        pipeline: [
+          {
+            $match: { isLiked: true }, // ← only count actual likes
+          },
+        ],
+      },
+    },
+    {
+      $addFields: {
+        owner: { $first: "$owner" },
+        likesCount: { $size: "$likes" },
+        isLiked: {
+          $in: [new mongoose.Types.ObjectId(req.user._id), "$likes.likedBy"],
+        },
+      },
+    },
+    {
+      $project: {
+        content: 1,
+        owner: 1,
+        likesCount: 1,
+        isLiked: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    },{
+      $sort: {
+        createdAt: -1
       }
     }
-  )
+  );
 
   const options = {
     page: 1,
@@ -73,7 +127,7 @@ const updateTweet = asyncHandler(async (req, res) => {
   }
 
   if(!fetchedTweet.owner.equals(req.user._id)){
-    throw new ApiErrror(403, "You are not authorized to perform this action.");
+    throw new ApiError(403, "You are not authorized to perform this action.");
   }
 
   fetchedTweet.content = content;
@@ -95,7 +149,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
   }
 
   if (!fetchedTweet.owner.equals(req.user._id)) {
-    throw new ApiErrror(403, "You are not authorized to perform this action.");
+    throw new ApiError(403, "You are not authorized to perform this action.");
   }
 
   await Tweet.findByIdAndDelete(tweetId);

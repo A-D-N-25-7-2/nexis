@@ -24,11 +24,12 @@ const toggleSubscription = asyncHandler(async (req, res) => {
   });
 
   if (alreadySubscribed) {
-    await Subscription.findByIdAndDelete(alreadySubscribed._id);
+    alreadySubscribed.isSubscribed = !alreadySubscribed.isSubscribed;
+    await alreadySubscribed.save();
 
     return res
       .status(200)
-      .json(new ApiResponse(200, "Unsubscribed channel!", null));
+      .json(new ApiResponse(200, `Channel ${alreadySubscribed.isSubscribed ? ' unsubscribed' : ' subscribed'}!`, alreadySubscribed));
   }
 
   const subscribe = await Subscription.create({
@@ -38,7 +39,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Subscribed channel!", subscribe));
+    .json(new ApiResponse(200, "Channel subscribed!", subscribe));
 });
 
 // controller to return subscriber list of a channel
@@ -101,6 +102,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
   pipeline.push({
     $match: {
       subscriber: new mongoose.Types.ObjectId(subscriber._id),
+      isSubscribed: true
     },
   });
 
@@ -110,6 +112,29 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
       localField: "channel",
       foreignField: "_id",
       as: "userDetails",
+      pipeline: [
+        {
+          $lookup: {
+            from: "subscriptions",
+            localField: "_id",
+            foreignField: "channel",
+            as: "subscribers"
+          }
+        },{
+          $addFields: {
+            subscriberCount: { $size: "$subscribers" },
+          }
+        },
+        {
+          $project : {
+            _id: 1,
+          fullName: 1,
+          username: 1,
+          avatar: 1,
+          subscriberCount: 1,
+          }
+        }
+    ]
     },
   });
 
@@ -120,8 +145,12 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
   pipeline.push({
     $project: {
       _id: 1,
+      channel_id: "$userDetails._id",
+      fullName: "$userDetails.fullName",
       username: "$userDetails.username",
       avatar: "$userDetails.avatar",
+      subscriberCount: "$userDetails.subscriberCount",
+      isSubscribed: { $literal: true}
     },
   });
 
@@ -132,4 +161,5 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Channels fetched!!", channels));
 });
 
-export { toggleSubscription, getUserChannelSubscribers, getSubscribedChannels };
+
+export { toggleSubscription, getUserChannelSubscribers, getSubscribedChannels};

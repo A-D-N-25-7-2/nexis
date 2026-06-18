@@ -9,7 +9,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
   const { name, description } = req.body;
 
   if (!name.trim()) {
-    throw new ApiErrior(400, "Playlist name cannot be empty!");
+    throw new ApiError(400, "Playlist name cannot be empty!");
   }
 
   const newPlaylist = await Playlist.create({
@@ -36,13 +36,71 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid user ID");
   }
 
-  const playlists = await Playlist.find({ owner: userId });
+  const fetchedPlaylists = await Playlist.find({ owner: userId });
 
-  if (playlists.length === 0) {
+  if (fetchedPlaylists.length === 0) {
     return res
       .status(200)
       .json(new ApiResponse(200, "No playlists found", []));
   }
+
+  const pipeline = [
+    {
+      $match: {
+        owner: new mongoose.Types.ObjectId(userId),
+      },
+    },
+    {
+      $addFields: {
+        totalVideos: { $size: "$videos" },
+        firstVideoId: { $first: "$videos" },
+      },
+    },
+    // Lookup only the first video's thumbnail
+    {
+      $lookup: {
+        from: "videos",
+        let: { firstId: "$firstVideoId" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$firstId"] } } },
+          { $project: { thumbnail: 1 } },
+        ],
+        as: "firstVideo",
+      },
+    },
+    {
+      $addFields: {
+        thumbnail: { $first: "$firstVideo.thumbnail" },
+      },
+    },
+    // Lookup owner details
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [{ $project: { fullName: 1, username: 1, avatar: 1 } }],
+      },
+    },
+    {
+      $addFields: {
+        owner: { $first: "$owner" },
+      },
+    },
+    {
+      $project: {
+        name: 1,
+        description: 1,
+        owner: 1,
+        totalVideos: 1,
+        thumbnail: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    },
+  ];
+  const playlists = await Playlist.aggregate(pipeline);
 
   return res
     .status(200)
@@ -52,37 +110,66 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
 const getPlaylistById = asyncHandler(async (req, res) => {
   const { playlistId } = req.params;
   //TODO: get playlist by id
-  const pipeline = [];
-
-  pipeline.push({
-    $match:  {
-      _id: new mongoose.Types.ObjectId(playlistId)
-    }
-  });
-
-  pipeline.push({
-    $lookup: {
-      from: "videos",
-      localField: "videos",
-      foreignField: "_id",
-      as: "videoDetails"
-    }
-  });
-
-  pipeline.push({
-    $unwind : "$videoDetails"
-  });
-
-  pipeline.push({
-    $project:{
-      _id: 1,
-      title: "$videoDetails.title",
-      duration: "$videoDetails.duration",
-      thumbnail: "$videoDetails.thumbnail",
-      videoFile: "$videoDetails.videoFile"
-    }
-  });
-
+ const pipeline = [
+   {
+     $match: {
+       _id: new mongoose.Types.ObjectId(playlistId),
+     },
+   },
+   {
+     $lookup: {
+       from: "videos",
+       localField: "videos",
+       foreignField: "_id",
+       as: "videoDetails",
+     },
+   },
+   {
+     $addFields: {
+       videoDetails: {
+         $map: {
+           input: "$videos",
+           as: "id",
+           in: {
+             $arrayElemAt: [
+               {
+                 $filter: {
+                   input: "$videoDetails",
+                   as: "v",
+                   cond: { $eq: ["$$v._id", "$$id"] },
+                 },
+               },
+               0,
+             ],
+           },
+         },
+       },
+     },
+   },
+   {
+     $project: {
+       _id: 1,
+       name: 1,
+       description: 1,
+       owner: 1,
+       videos: {
+         $map: {
+           input: "$videoDetails",
+           as: "v",
+           in: {
+             _id: "$$v._id",
+             title: "$$v.title",
+             duration: "$$v.duration",
+             thumbnail: "$$v.thumbnail",
+             views: "$$v.views",
+             videoFile: "$$v.videoFile",
+             createdAt: "$$v.createdAt",
+           },
+         },
+       },
+     },
+   },
+ ];
   const playlist = await Playlist.aggregate(pipeline);
 
   if(!playlist){
@@ -108,7 +195,7 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
   }
 
   if (!fetchedPlaylist.owner.equals(req.user._id)) {
-    throw new ApiErrror(403, "You are not authorized to perform this action.");
+    throw new ApiError(403, "You are not authorized to perform this action.");
   }
 
   const video = await Video.findById(videoId);
@@ -116,8 +203,10 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Video not found!!");
   }
 
-  if (fetchedPlaylist.videos.includes(videoId)) {
-    throw new ApiError(400, "Video already exists in playlist");
+  if (fetchedPlaylist.videos.some((id) => id.equals(videoId))) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "Video already added to playlist.", null));
   }
 
   fetchedPlaylist.videos.push(videoId);
@@ -139,7 +228,7 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
   }
 
   if (!fetchedPlaylist.owner.equals(req.user._id)) {
-    throw new ApiErrror(403, "You are not authorized to perform this action.");
+    throw new ApiError(403, "You are not authorized to perform this action.");
   }
 
   const video = await Video.findById(videoId);
@@ -172,7 +261,7 @@ const deletePlaylist = asyncHandler(async (req, res) => {
   }
 
   if (!fetchedPlaylist.owner.equals(req.user._id)) {
-    throw new ApiErrror(403, "You are not authorized to perform this action.");
+    throw new ApiError(403, "You are not authorized to perform this action.");
   }
 
   await Playlist.findByIdAndDelete(playlistId);
@@ -195,7 +284,7 @@ const updatePlaylist = asyncHandler(async (req, res) => {
   }
 
   if (!fetchedPlaylist.owner.equals(req.user._id)) {
-    throw new ApiErrror(403, "You are not authorized to perform this action.");
+    throw new ApiError(403, "You are not authorized to perform this action.");
   }
 
   fetchedPlaylist.name = name;

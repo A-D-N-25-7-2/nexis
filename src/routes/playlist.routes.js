@@ -17,7 +17,7 @@ router.route("/delete/:playlistId").delete(verifyJWT, deletePlaylist);
 router.route("/update/:playlistId").patch(verifyJWT, updatePlaylist);
 router.route("/add-video/:playlistId/:videoId").patch(verifyJWT, addVideoToPlaylist);
 router.route("/remove-video/:playlistId/:videoId").patch(verifyJWT, removeVideoFromPlaylist);
-router.route("/get-playlist/:playlistId").get(getPlaylistById);
-router.route("/get-user-playlists/:userId").get(getUserPlaylists);
+router.route("/get-playlist/:playlistId").get(verifyJWT,getPlaylistById);
+router.route("/get-user-playlists/:userId").get(verifyJWT,getUserPlaylists);
 
 export default router;

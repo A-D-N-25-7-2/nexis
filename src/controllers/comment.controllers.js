@@ -20,6 +20,61 @@ const getVideoComments = asyncHandler(async (req, res) => {
     }
   );
 
+  pipeline.push(
+    {
+        $lookup: {
+            from: "users",
+            localField: "owner",
+            foreignField: "_id",  
+            as: "owner",
+            pipeline:[
+                {
+                    $project: {
+                        fullName: 1,
+                        username: 1,
+                        avatar: 1
+                    }
+                }
+            ]
+        } 
+    }
+  )
+  
+  pipeline.push({
+    $lookup: {
+      from: "likes",
+      localField: "_id",
+      foreignField: "comment",
+      as: "likes",
+      pipeline: [
+        {
+          $match: { isLiked: true }, // ← only count actual likes
+        },
+      ],
+    },
+  });
+
+  pipeline.push({
+    $addFields: {
+      likesCount: { $size: "$likes" },
+      isLiked: {
+        $in: [new mongoose.Types.ObjectId(req.user._id), "$likes.likedBy"]
+      }
+    }
+  })
+
+  pipeline.push({
+    $project: {
+      content: 1,
+      owner: { $first: "$owner" },
+      likesCount: 1,
+      isLiked: 1,
+      createdAt: 1,
+      updatedAt: 1
+    }
+  });
+  
+
   const options = {
     page: parseInt(page),
     limit: parseInt(limit)
@@ -89,7 +144,7 @@ const deleteComment = asyncHandler(async (req, res) => {
   // TODO: delete a comment
   const { commentId } = req.params;
 
-  const fetchedComment = await Comment.findByIdAndDelete(commentId);
+  const fetchedComment = await Comment.findById(commentId);
 
   if(!fetchedComment){
     throw new ApiError(404, "Comment not found!!");
@@ -98,6 +153,8 @@ const deleteComment = asyncHandler(async (req, res) => {
   if (!fetchedComment.owner.equals(req.user._id)) {
     throw new ApiError(403, "You are not authorized to perform this action..");
   }
+
+  await Comment.findByIdAndDelete(commentId);
 
   return res
   .status(200)

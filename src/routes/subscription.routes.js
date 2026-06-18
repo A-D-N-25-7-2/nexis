@@ -2,7 +2,7 @@ import { Router } from "express";
 import {
   toggleSubscription,
   getUserChannelSubscribers,
-  getSubscribedChannels,
+  getSubscribedChannels
 } from "../controllers/subscription.controllers.js";
 import { verifyJWT } from "../middlewares/auth.middlewares.js";
 
