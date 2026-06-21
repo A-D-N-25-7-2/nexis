@@ -130,14 +130,14 @@ const loginUser = asyncHandler(async (req, res) => {
   const accessOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "none",
     maxAge: 1000 * 60 * 60 * 24, // 1 day
   };
 
   const refreshOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "none",
     maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
   };
   
@@ -169,7 +169,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   const options = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "none",
     maxAge: 0, // Set to 0 to delete the cookie
   };
 
@@ -212,14 +212,14 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     const accessOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "none",
       maxAge: 1000 * 60 * 60 * 24, // 1 day
     };
 
     const refreshOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "none",
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
     };
 
