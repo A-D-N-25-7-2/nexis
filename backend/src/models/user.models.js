@@ -43,9 +43,7 @@ const userSchema = new Schema(
       type: String,
       required: [true, "Password is required"],
     },
-    refreshToken: {
-      type: String,
-    },
+    refreshTokens: [{ type: String }],
     avatarPublicId: {
       type: String,
     },

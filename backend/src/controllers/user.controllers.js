@@ -11,15 +11,23 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { cleanUpFiles } from "../utils/cleanUpFiles.js";
 
-const generateAccessAndRefreshTokens = async (userId) => {
+const generateAccessAndRefreshTokens = async (
+  userId,
+  oldRefreshToken = null
+) => {
   try {
     const user = await User.findById(userId);
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
-    user.refreshToken = refreshToken;
+
+    if (oldRefreshToken) {
+      user.refreshTokens = (user.refreshTokens || []).filter(
+        (t) => t !== oldRefreshToken
+      );
+    }
+    user.refreshTokens = [...(user.refreshTokens || []), refreshToken];
 
     await user.save({ validateBeforeSave: false });
-
     return { accessToken, refreshToken };
   } catch (error) {
     throw new ApiError(500, "Error generating tokens");
@@ -155,22 +163,21 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
+  const incomingRefreshToken = req.cookies?.refreshToken;
+
   await User.findByIdAndUpdate(
     req.user._id,
     {
-      $unset: {
-        refreshToken: 1,
-      },
+      $pull: { refreshTokens: incomingRefreshToken },
     },
-    {
-      returnDocument: "after",
-    }
+    { returnDocument: "after" }
   );
+
   const options = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "none",
-    maxAge: 0, // Set to 0 to delete the cookie
+    maxAge: 0,
   };
 
   return res
@@ -185,7 +192,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     req.cookies?.refreshToken || req.body?.refreshToken;
 
   if (!incomingRefreshToken) {
-    console.log("No refresh token provided");
     throw new ApiError(401, "Unauthorized: No refresh token provided");
   }
 
@@ -193,34 +199,32 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     incomingRefreshToken,
     process.env.REFRESH_TOKEN_SECRET
   );
-
   const user = await User.findById(decodedToken?._id);
 
   if (!user) {
-    console.log("User not found for the provided refresh token");
     throw new ApiError(401, "Unauthorized: Invalid refresh token");
   }
 
-  if (user.refreshToken !== incomingRefreshToken) {
-    console.log("Refresh token mismatch");
+  if (!user.refreshTokens?.includes(incomingRefreshToken)) {
     throw new ApiError(401, "Refresh token is expired or used!");
   }
+
   try {
     const { accessToken, refreshToken: newRefreshToken } =
-      await generateAccessAndRefreshTokens(user._id);
+      await generateAccessAndRefreshTokens(user._id, incomingRefreshToken); // pass old token for rotation
 
     const accessOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "none",
-      maxAge: 1000 * 60 * 60 * 24, // 1 day
+      maxAge: 1000 * 60 * 60 * 24,
     };
 
     const refreshOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "none",
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      maxAge: 1000 * 60 * 60 * 24 * 7,
     };
 
     return res
@@ -234,7 +238,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         })
       );
   } catch (error) {
-    console.log("Error refreshing access token");
     throw new ApiError(500, "Error refreshing access token");
   }
 });
