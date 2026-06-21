@@ -6,7 +6,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://nexis.vercel.app"],
+    origin: ["http://localhost:5173", "https://nexis-three-iota.vercel.app/"],
     credentials: true,
   })
 );
