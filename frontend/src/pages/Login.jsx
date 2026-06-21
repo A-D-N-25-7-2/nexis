@@ -7,8 +7,8 @@ import { Link } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 
 const schema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters")
+  emailOrUsername: z.string().min(1, "Email or Username is required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 
@@ -51,16 +51,16 @@ const Login = () => {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="text-zinc-400 text-sm mb-1 block">Email</label>
+            <label className="text-zinc-400 text-sm mb-1 block">Email or Username</label>
             <input
-              {...register("email")}
-              type="email"
+              {...register("emailOrUsername")}
+              type="text"
               className="w-full bg-zinc-800 text-white rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-red-500"
               placeholder="john@example.com"
             />
-            {errors.email && (
+            {errors.emailOrUsername && (
               <p className="text-red-400 text-xs mt-1">
-                {errors.email.message}
+                {errors.emailOrUsername.message}
               </p>
             )}
           </div>
