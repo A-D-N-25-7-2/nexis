@@ -23,7 +23,7 @@ export const deleteTweet = async (tweetId) => {
 };
 
 export const toggleTweetLike = async (tweetId) => {
-  const response = await axiosInstance.post(`likes/tweet-toggle/${tweetId}`);
+  const response = await axiosInstance.post(`/likes/tweet-toggle/${tweetId}`);
   return response.data;
 };
 

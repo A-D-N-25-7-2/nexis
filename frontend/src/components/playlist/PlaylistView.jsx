@@ -2,13 +2,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ListVideo, ArrowLeft, X } from "lucide-react";
 import VideoCard from "../video/VideoCard";
-import { getPlaylistById, removeVideoFromPlaylist } from "../../features/playlist/playlistApi";
+import {
+  getPlaylistById,
+  removeVideoFromPlaylist,
+} from "../../features/playlist/playlistApi";
 import { useSelector } from "react-redux";
 import { selectCurrentUser } from "../../features/auth/authSlice";
 import toast from "react-hot-toast";
 
 const PlaylistView = () => {
-
   const queryClient = useQueryClient();
   const currentUser = useSelector(selectCurrentUser);
   const { playlistId } = useParams();
@@ -20,10 +22,9 @@ const PlaylistView = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-
   const playlistData = data?.[0] || {};
   const meta = playlistData;
-  const videos = playlistData.videos || []; 
+  const videos = playlistData.videos || [];
   const isOwner = currentUser?._id === meta?.owner;
 
   const removeMutation = useMutation({
@@ -74,10 +75,9 @@ const PlaylistView = () => {
       </div>
       {/* Videos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-8">
-        {videos
-          .map((video, i) => {
-            const originalIndex = i;
-            return (
+        {videos.map((video, i) => {
+          const originalIndex = i;
+          return (
             <div className="relative" key={video._id}>
               <div
                 onClick={() =>
@@ -99,7 +99,8 @@ const PlaylistView = () => {
                 </button>
               )}
             </div>
-          )})}
+          );
+        })}
       </div>
     </div>
   );

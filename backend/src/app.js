@@ -4,11 +4,12 @@ import cors from "cors";
 
 const app = express();
 
-app.use(cors({
-    origin: process.env.CORS_ORIGIN,
-    credentials: true
-}));
-
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "https://nexis.vercel.app"],
+    credentials: true,
+  })
+);
 app.use(express.json({
     limit:'10mb'
 }));
@@ -32,7 +33,9 @@ import healthcheckRouter from "./routes/healthcheck.routes.js";
 import dashboardRouter from "./routes/dashboard.routes.js";
 import saveRouter from "./routes/save.routes.js";
 import noteRouter from "./routes/note.routes.js";
+import homeRouter from "./routes/home.routes.js";
 
+app.use("/api/v1/home", homeRouter);
 app.use("/api/v1", healthcheckRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/videos", videoRouter);

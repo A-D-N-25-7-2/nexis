@@ -22,17 +22,19 @@ export const getPlaylistById = async (playlistId) => {
   return response.data.data;
 };
 
-export const addVideoToPlaylist  = async (playlistId, videoId) => {
-  const response = await axiosInstance.patch(`/playlists/add-video/${playlistId}/${videoId}`)
+export const addVideoToPlaylist = async (playlistId, videoId) => {
+  const response = await axiosInstance.patch(
+    `/playlists/add-video/${playlistId}/${videoId}`,
+  );
   return response.data;
-} 
+};
 
 export const removeVideoFromPlaylist = async (playlistId, videoId) => {
   const response = await axiosInstance.patch(
     `/playlists/remove-video/${playlistId}/${videoId}`,
   );
   return response.data;
-}
+};
 
 export const updatePlaylist = async (playlistId, { name, description }) => {
   const res = await axiosInstance.patch(`/playlists/update/${playlistId}`, {

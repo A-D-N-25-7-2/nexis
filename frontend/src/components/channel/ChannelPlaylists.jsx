@@ -10,7 +10,7 @@ import { ListVideo, Plus, X } from "lucide-react";
 import { TrashIcon } from "@heroicons/react/24/outline";
 import ConfirmationModal from "../ConfirmationModal";
 import toast from "react-hot-toast";
-import UpdatePlaylistModal from '../playlist/UpdatePlaylistModal';
+import UpdatePlaylistModal from "../playlist/UpdatePlaylistModal";
 import { PencilIcon } from "@heroicons/react/24/outline";
 
 const ChannelPlaylists = ({ channelId, isOwner }) => {

@@ -26,6 +26,7 @@ import CommentSection from "../components/comment/CommentSection";
 import NotesPanel from "../components/notes/NotesPanel";
 import toast from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import LikeButton from "../components/LikeButton";
 
 const Watch = () => {
   const { videoId } = useParams();
@@ -36,9 +37,7 @@ const Watch = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [noteError, setNoteError] = useState("");
-  const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const [likesCount, setLikesCount] = useState(0);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscribersCount, setSubscribersCount] = useState(0);
   const [descExpanded, setDescExpanded] = useState(false);
@@ -51,6 +50,7 @@ const Watch = () => {
   const { playlist, currentIndex } = location.state || {};
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [playlistMenu, setPlaylistMenu] = useState(null);
+  const [popping, setPopping] = useState(false);
   const playlistMenuRef = useRef(null);
   const playlistPanelRef = useRef(null);
 
@@ -107,9 +107,7 @@ const Watch = () => {
         const res = await getVideoById(videoId);
         const videoData = res.data.video;
         setVideo(videoData);
-        setIsLiked(videoData.isLiked);
         setIsSaved(videoData.isSaved);
-        setLikesCount(videoData.likesCount);
         setIsSubscribed(videoData.owner?.isSubscribed);
         setSubscribersCount(videoData.owner?.subscribersCount);
         setPlaylistMenu(res?.data?.playlist || []);
@@ -175,16 +173,26 @@ const Watch = () => {
   };
 
   const handleLike = async () => {
-    const originalLiked = isLiked;
-    const originalCount = likesCount;
-    setIsLiked(!originalLiked);
-    setLikesCount(originalLiked ? originalCount - 1 : originalCount + 1);
+    const originalLiked = video.isLiked;
+    const originalCount = video.likesCount;
+
+    // optimistic update
+    setVideo((prev) => ({
+      ...prev,
+      isLiked: !prev.isLiked,
+      likesCount: prev.isLiked ? prev.likesCount - 1 : prev.likesCount + 1,
+    }));
+
     try {
       await toggleVideoLike(videoId);
       queryClient.invalidateQueries({ queryKey: ["likedVideos"] });
     } catch {
-      setIsLiked(originalLiked);
-      setLikesCount(originalCount);
+      // rollback
+      setVideo((prev) => ({
+        ...prev,
+        isLiked: originalLiked,
+        likesCount: originalCount,
+      }));
     }
   };
 
@@ -389,23 +397,12 @@ const Watch = () => {
           </div>
 
           {/* Actions row */}
-          <div className="flex items-center gap-3 overflow-x-auto pb-1">
-            <button
-              onClick={handleLike}
-              className={`shrink-0 group flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors
-        ${
-          isLiked
-            ? "text-red-400 border-red-400/40 border bg-red-400/10 hover:bg-red-400/15"
-            : "border-zinc-700 border hover:border-white/70 text-zinc-300 bg-white/[0.07]"
-        }`}
-            >
-              <ThumbsUp
-                size={16}
-                className={`${isLiked ? "fill-red-400 stroke-red-400" : ""} group-hover:-rotate-15 transition-all duration-200`}
-              />
-              {formatCount(likesCount)}
-            </button>
-
+          <div className="flex items-center gap-3 overflow-x-auto pb-1 pl-2">
+            <LikeButton
+              element={video}
+              onLike={handleLike}
+              formatCount={formatCount}
+            />
             <button
               onClick={handleSave}
               className={`shrink-0 group flex items-center gap-2 p-3 rounded-full text-sm font-medium transition-colors
@@ -520,9 +517,11 @@ const Watch = () => {
               {formatCount(video.views)}
             </div>
           </div>
-          <p className={`whitespace-pre-wrap mt-4 leading-relaxed ${
-  !descExpanded ? "line-clamp-2" : ""
-}`}>
+          <p
+            className={`whitespace-pre-wrap mt-4 leading-relaxed ${
+              !descExpanded ? "line-clamp-2" : ""
+            }`}
+          >
             {video.description || "No description provided."}
           </p>
 

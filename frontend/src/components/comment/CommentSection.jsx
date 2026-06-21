@@ -252,9 +252,9 @@ const CommentSection = ({ videoId, currentUser }) => {
                   </p>
                 )}
 
-                <div className="flex items-center gap-3 mt-2">
+                <div className="flex items-center gap-3 mt-4">
                   <LikeButton
-                    comment={comment}
+                    element={comment}
                     onLike={handleLikeComment}
                     formatCount={formatCount}
                   />

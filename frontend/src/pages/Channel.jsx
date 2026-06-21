@@ -97,7 +97,8 @@ useEffect(() => {
     hasNextPage,
   } = useInfiniteQuery({
     queryKey: ["channelVideos", channel?._id],
-    queryFn: ({ pageParam = 1 }) => getChannelVideos(channel._id, pageParam),
+    queryFn: ({ pageParam }) => getChannelVideos(channel._id, pageParam),
+    initialPageParam: 1,
     getNextPageParam: (lastPage) => lastPage.data?.nextPage ?? undefined,
     enabled: !!channel?._id && activeTab === "Videos",
     staleTime: 1000 * 60 * 5,
@@ -405,7 +406,7 @@ const ChannelSkeleton = (isOwner) => {
       </div>
       <div className="border-b border-zinc-800 mb-6" />
       <div className="h-5 w-16 bg-zinc-700 rounded-md mb-4" />
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="flex flex-col gap-2">
             <div className="w-full aspect-video bg-zinc-800 rounded-lg" />

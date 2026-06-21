@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import VideoGrid from "../components/video/VideoGrid";
-import { getAllVideos } from "../features/video/videoApi";
+import HomeFeed from "../components/feed/HomeFeed";
+import { getHomeFeed } from "../features/feed/feedApi";
 import { useDebounce } from "../hooks/useDebounce";
 
 const LIMIT = 6;
@@ -22,14 +22,17 @@ const Home = () => {
     hasNextPage,
     isError,
   } = useInfiniteQuery({
-    queryKey: ["videos", debouncedQuery],
+    queryKey: ["homeFeed", debouncedQuery],
     queryFn: ({ pageParam = 1 }) =>
-      getAllVideos({ page: pageParam, limit: LIMIT, query: debouncedQuery }),
-    getNextPageParam: (lastPage) => lastPage.data?.nextPage ?? undefined,
+      getHomeFeed({ page: pageParam, limit: LIMIT, query: debouncedQuery }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.message?.nextPage ?? undefined,
     staleTime: 1000 * 60 * 5,
   });
 
-  const videos = data?.pages.flatMap((p) => p.data?.docs || []) ?? [];
+  const hasItems = (data?.pages || []).some(
+    (p) => (p.message?.docs || []).length > 0,
+  );
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -60,11 +63,11 @@ const Home = () => {
 
       {isError && (
         <div className="text-red-400 bg-red-400/10 px-4 py-3 rounded-lg mb-6 text-sm">
-          Failed to load videos. Please try again.
+          Failed to load your feed. Please try again.
         </div>
       )}
 
-      <VideoGrid videos={videos} loading={isLoading} />
+      <HomeFeed pages={data?.pages} loading={isLoading} />
 
       <div ref={sentinelRef} className="h-1" />
 
@@ -74,9 +77,9 @@ const Home = () => {
         </div>
       )}
 
-      {!isLoading && !hasNextPage && videos.length > 0 && (
+      {!isLoading && !hasNextPage && hasItems && (
         <p className="text-center text-zinc-600 text-sm mt-10">
-          You've seen all the videos
+          You've seen it all
         </p>
       )}
     </div>
