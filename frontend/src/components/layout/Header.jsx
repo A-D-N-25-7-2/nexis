@@ -165,6 +165,13 @@ const Header = ({ onMenuClick, onUploadClick }) => {
                 >
                   Dashboard
                 </Link>
+                <Link
+                  to="/saved-videos"
+                  onClick={() => setShowDropdown(false)}
+                  className="block px-4 py-2.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+                >
+                  Saved Videos
+                </Link>
                 <div
                   onClick={() => {
                     setShowDropdown(false);
