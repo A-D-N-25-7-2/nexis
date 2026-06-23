@@ -100,7 +100,7 @@ const ChannelCard = ({ channel }) => {
           onClick={(e) => {
             handleSubscribe();
           }}
-          className={`px-6 py-2.5 z-50 rounded-full text-sm font-medium transition-colors shrink-0
+          className={`px-6 py-2.5 z-20 rounded-full text-sm font-medium transition-colors shrink-0
               ${
                 isSubscribed
                   ? "bg-zinc-700 hover:bg-zinc-600 text-white"
