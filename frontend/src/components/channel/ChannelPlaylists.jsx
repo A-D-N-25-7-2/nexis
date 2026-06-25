@@ -222,7 +222,7 @@ const ChannelPlaylists = ({ channelId, isOwner }) => {
                       setIsEditModalOpen(true);
                     }}
                     disabled={isEditModalOpen}
-                    className="absolute group/child p-2 bg-black/70 rounded-full border backdrop-blur-xs border-zinc-700 flex items-center justify-center hover:bg-zinc-700/50 hover:border-blue-500 hover:scale-110 active:scale-95 transition-all duration-200 top-2 right-12 disabled:opacity-50"
+                    className="absolute z-4 group/child p-2 bg-black/70 rounded-full border backdrop-blur-xs border-zinc-700 flex items-center justify-center hover:bg-zinc-700/50 hover:border-blue-500 hover:scale-110 active:scale-95 transition-all duration-200 top-2 right-12 disabled:opacity-50"
                   >
                     <PencilIcon className=" w-3 h-3 text-zinc-400 group-hover/child:text-blue-400 group-hover/child:-rotate-12 group-hover:scale-110 transition-all duration-200" />
                   </button>
@@ -232,7 +232,7 @@ const ChannelPlaylists = ({ channelId, isOwner }) => {
                       setPlaylistId(playlist._id);
                     }}
                     disabled={deleteMutation.isPending}
-                    className="absolute group/child p-2 bg-black/70 rounded-full border backdrop-blur-xs border-zinc-700 flex items-center justify-center hover:bg-zinc-700/50 hover:border-red-500 hover:scale-110 active:scale-95 transition-all duration-200 top-2 right-2 disabled:opacity-50"
+                    className="absolute z-4 group/child p-2 bg-black/70 rounded-full border backdrop-blur-xs border-zinc-700 flex items-center justify-center hover:bg-zinc-700/50 hover:border-red-500 hover:scale-110 active:scale-95 transition-all duration-200 top-2 right-2 disabled:opacity-50"
                   >
                     <TrashIcon className=" w-3 h-3 text-zinc-400 group-hover/child:text-red-400 group-hover/child:rotate-6 group-hover:scale-110 transition-all duration-200" />
                   </button>

@@ -11,7 +11,6 @@ const schema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-
 const Login = () => {
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
